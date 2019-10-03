@@ -9,17 +9,14 @@ import (
 )
 
 type replica interface {
-    New() replica       // need a new instance of the protocol
     Run()               // a function that runs the protocol
 }
 
 type event interface {
-    Dest() int
+    Dest() int          // a function that reports the destination of the message
 }
 
-func hub(sendChans []chan event,
-         recvChan chan event,
-         delay int) {
+func hub(sendChans []chan event, recvChan chan event, delay int) {
     buffer := list.New()
 
     for {
@@ -36,6 +33,11 @@ func hub(sendChans []chan event,
             }
         }
     }
+}
+
+func run(r replica, wg *sync.WaitGroup) {
+    r.Run()
+    wg.Done()
 }
 
 func System(replicas []replica) {
@@ -57,7 +59,7 @@ func System(replicas []replica) {
     fmt.Println("Done.")
 
     for _, r := range replicas {
-        go r.Run()
+        go run(r, &wg)
     }
 
     go hub(toreps, fromreps, 0)
