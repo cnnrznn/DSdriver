@@ -9,7 +9,7 @@ import (
 )
 
 type replica interface {
-    Run()               // a function that runs the protocol
+    Run(n, f int, fr, to chan event) // a function that runs the protocol
 }
 
 type event interface {
@@ -35,12 +35,12 @@ func hub(sendChans []chan event, recvChan chan event, delay int) {
     }
 }
 
-func run(r replica, wg *sync.WaitGroup) {
-    r.Run()
+func run(r replica, n, f int, fr, to chan event, wg *sync.WaitGroup) {
+    r.Run(n, f, fr, to)
     wg.Done()
 }
 
-func System(replicas []replica) {
+func System(replicas []replica, n, f int) {
     toreps := []chan event{}
     fromreps := make(chan event, 1024)
 
@@ -52,14 +52,14 @@ func System(replicas []replica) {
 
     rand.Seed(time.Now().UnixNano())
 
-    for i := 0; i < len(replicas); i++ {
+    for i := 0; i < n; i++ {
         toreps = append(toreps, make(chan event, 1024))
     }
 
     fmt.Println("Done.")
 
-    for _, r := range replicas {
-        go run(r, &wg)
+    for i, r := range replicas {
+        go run(r, n, f, fromreps, toreps[i], &wg)
     }
 
     go hub(toreps, fromreps, 0)
