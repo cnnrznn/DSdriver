@@ -2,7 +2,6 @@ package dsdriver
 
 import (
     "container/list"
-    "fmt"
     "time"
 )
 
@@ -16,7 +15,6 @@ func hub(sendChans []chan Dester, recvChan chan Dester, delay int) {
     for {
         select {
         case d := <-recvChan:
-            fmt.Println(d)
             buffer.PushBack(d)
         default:
             time.Sleep(time.Duration(delay) * time.Millisecond)
