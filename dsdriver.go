@@ -1,7 +1,7 @@
 package dsdriver
 
 import (
-    "container/list"
+    "math/rand"
     "time"
 )
 
@@ -9,19 +9,35 @@ type Dester interface {
     Dest() int          // a function that reports the destination of this thing
 }
 
-func hub(sendChans []chan Dester, recvChan chan Dester, delay int) {
-    buffer := list.New()
+func benignHub(sendChans []chan Dester, recvChan chan Dester, delay int) {
+    for {
+        select {
+        case d := <-recvChan:
+            sendChans[d.Dest()] <- d
+        }
+    }
+}
+
+func reorderHub(sendChans []chan Dester, recvChan chan Dester, delay int) {
+    buffer := make([]Dester, 0)
+    startTime := time.Now()
+    timeDiff := 100 * time.Millisecond
 
     for {
         select {
         case d := <-recvChan:
-            buffer.PushBack(d)
+            buffer = append(buffer, d)
         default:
-            time.Sleep(time.Duration(delay) * time.Millisecond)
-            for buffer.Len() > 0 {
-                d := buffer.Front().Value.(Dester)
-                sendChans[d.Dest()] <- d
-                buffer.Remove(buffer.Front())
+            if time.Now().Sub(startTime) > timeDiff {
+                startTime = time.Now()
+                rand.Shuffle(len(buffer), func(i, j int) {
+                        buffer[i], buffer[j] = buffer[j], buffer[i]
+                })
+                for len(buffer) > 0 {
+                    d := buffer[0]
+                    buffer = buffer[1:]
+                    sendChans[d.Dest()] <- d
+                }
             }
         }
     }
@@ -35,7 +51,7 @@ func Local(n int) (frChan chan Dester,
         toChans = append(toChans, make(chan Dester, 1024))
     }
 
-    go hub(toChans, frChan, 0)
+    go reorderHub(toChans, frChan, 0)
 
     return
 }
