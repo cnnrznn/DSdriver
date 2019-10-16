@@ -9,7 +9,9 @@ type Dester interface {
     Dest() int          // a function that reports the destination of this thing
 }
 
-func benignHub(sendChans []chan Dester, recvChan chan Dester, delay int) {
+type Hub func(sendChans []chan Dester, recvChan chan Dester) ()
+
+func BenignHub(sendChans []chan Dester, recvChan chan Dester) {
     for {
         select {
         case d := <-recvChan:
@@ -18,7 +20,7 @@ func benignHub(sendChans []chan Dester, recvChan chan Dester, delay int) {
     }
 }
 
-func reorderHub(sendChans []chan Dester, recvChan chan Dester, delay int) {
+func ReorderHub(sendChans []chan Dester, recvChan chan Dester) {
     buffer := make([]Dester, 0)
     startTime := time.Now()
     timeDiff := 100 * time.Millisecond
@@ -44,14 +46,15 @@ func reorderHub(sendChans []chan Dester, recvChan chan Dester, delay int) {
 }
 
 func Local(n int) (frChan chan Dester,
-                    toChans []chan Dester) {
+                    toChans []chan Dester,
+                    fn Hub) {
     frChan = make(chan Dester, 1024)
 
     for i := 0; i < n; i++ {
         toChans = append(toChans, make(chan Dester, 1024))
     }
 
-    go reorderHub(toChans, frChan, 0)
+    go fn(toChans, frChan)
 
     return
 }
