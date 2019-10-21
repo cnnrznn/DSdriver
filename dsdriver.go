@@ -45,9 +45,8 @@ func ReorderHub(sendChans []chan Dester, recvChan chan Dester) {
     }
 }
 
-func Local(n int) (frChan chan Dester,
-                    toChans []chan Dester,
-                    fn Hub) {
+func Local(n int, fn Hub) (frChan chan Dester,
+                           toChans []chan Dester) {
     frChan = make(chan Dester, 1024)
 
     for i := 0; i < n; i++ {
