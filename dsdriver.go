@@ -1,6 +1,9 @@
 package dsdriver
 
 import (
+    "encoding/json"
+    "fmt"
+    "io/ioutil"
 	"math/rand"
 	"time"
 )
@@ -56,4 +59,29 @@ func Local(n int, fn Hub) (frChan chan Dester,
 	go fn(toChans, frChan)
 
 	return
+}
+
+func loadNodes() (nodes []string, err error) {
+    data, err := ioutil.ReadFile("nodes.json")
+    if err != nil {
+        return
+    }
+
+    err = json.Unmarshal(data, &nodes)
+
+    return
+}
+
+func Remote(i int) (frChan, toChan chan Dester) {
+    nodes, err := loadNodes()
+    if err != nil {
+        fmt.Println("Error loading 'nodes' file", err)
+        panic("Error loading file")
+    }
+    fmt.Println(nodes)
+
+    frChan = make(chan Dester, 1024)
+    toChan = make(chan Dester, 1024)
+
+    return
 }
