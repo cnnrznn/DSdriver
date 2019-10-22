@@ -1,9 +1,9 @@
 package dsdriver
 
 import (
-    "encoding/json"
-    "fmt"
-    "io/ioutil"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"time"
 )
@@ -13,9 +13,9 @@ type Dester interface {
 }
 
 type Message interface {
-    Dest() int // the message's destination
-    Encode() []byte, error // serialize the message
-    Decode([]byte) error // de-serialize the message
+	Dest() int               // the message's destination
+	Encode() ([]byte, error) // serialize the message
+	Decode([]byte) error     // de-serialize the message
 }
 
 type Hub func(sendChans []chan Dester, recvChan chan Dester)
@@ -68,35 +68,35 @@ func Local(n int, fn Hub) (frChan chan Dester,
 }
 
 func loadNodes() (nodes []string, err error) {
-    data, err := ioutil.ReadFile("nodes.json")
-    if err != nil {
-        return
-    }
+	data, err := ioutil.ReadFile("nodes.json")
+	if err != nil {
+		return
+	}
 
-    err = json.Unmarshal(data, &nodes)
+	err = json.Unmarshal(data, &nodes)
 
-    return
+	return
 }
 
 func Remote(i int) (frChan, toChan chan Dester) {
-    nodes, err := loadNodes()
-    if err != nil {
-        fmt.Println("Error loading 'nodes' file", err)
-        panic("Error loading file")
-    }
-    fmt.Println(nodes)
+	nodes, err := loadNodes()
+	if err != nil {
+		fmt.Println("Error loading 'nodes' file", err)
+		panic("Error loading file")
+	}
+	fmt.Println(nodes)
 
-    frChan = make(chan Dester, 1024)
-    toChan = make(chan Dester, 1024)
+	frChan = make(chan Dester, 1024)
+	toChan = make(chan Dester, 1024)
 
-    go serve(i, nodes, toChan)
+	go serve(i, nodes, toChan)
 
-    for {
-        select {
-        case msg := <-frChan:
-            go send(msg, nodes)
-        }
-    }
+	for {
+		select {
+		case msg := <-frChan:
+			go send(msg, nodes)
+		}
+	}
 
-    return
+	return
 }
