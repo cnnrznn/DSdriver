@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+    "net"
 	"time"
 )
 
@@ -12,15 +13,9 @@ type Dester interface {
 	Dest() int // a function that reports the destination of this thing
 }
 
-type Message interface {
-	Dest() int               // the message's destination
-	Encode() ([]byte, error) // serialize the message
-	Decode([]byte) error     // de-serialize the message
-}
+type Hub func(sendChans []chan Dester, recvChan chan Dester)
 
-type Hub func(sendChans []chan Message, recvChan chan Message)
-
-func BenignHub(sendChans []chan Message, recvChan chan Message) {
+func BenignHub(sendChans []chan Dester, recvChan chan Dester) {
 	for {
 		select {
 		case d := <-recvChan:
@@ -29,8 +24,8 @@ func BenignHub(sendChans []chan Message, recvChan chan Message) {
 	}
 }
 
-func ReorderHub(sendChans []chan Message, recvChan chan Message) {
-	buffer := make([]Message, 0)
+func ReorderHub(sendChans []chan Dester, recvChan chan Dester) {
+	buffer := make([]Dester, 0)
 	startTime := time.Now()
 	timeDiff := 100 * time.Millisecond
 
@@ -54,12 +49,12 @@ func ReorderHub(sendChans []chan Message, recvChan chan Message) {
 	}
 }
 
-func Local(n int, fn Hub) (frChan chan Message,
-	toChans []chan Message) {
-	frChan = make(chan Message, 1024)
+func Local(n int, fn Hub) (frChan chan Dester,
+	toChans []chan Dester) {
+	frChan = make(chan Dester, 1024)
 
 	for i := 0; i < n; i++ {
-		toChans = append(toChans, make(chan Message, 1024))
+		toChans = append(toChans, make(chan Dester, 1024))
 	}
 
 	go fn(toChans, frChan)
@@ -78,7 +73,7 @@ func loadNodes() (nodes []string, err error) {
 	return
 }
 
-func Remote(i int) (frChan, toChan chan Message) {
+func Remote(i int, s Serializer) (frChan, toChan chan Dester) {
 	nodes, err := loadNodes()
 	if err != nil {
 		fmt.Println("Error loading 'nodes' file", err)
@@ -86,8 +81,8 @@ func Remote(i int) (frChan, toChan chan Message) {
 	}
 	fmt.Println(nodes)
 
-	frChan = make(chan Message, 1024)
-	toChan = make(chan Message, 1024)
+	frChan = make(chan Dester, 1024)
+	toChan = make(chan Dester, 1024)
 
 	go serve(i, nodes, toChan)
 
@@ -101,8 +96,8 @@ func Remote(i int) (frChan, toChan chan Message) {
 	return
 }
 
-func serve(i int, nodes []string, toChan chan Message) {
+func serve(i int, nodes []string, toChan chan Dester) {
 }
 
-func send(msg Message, nodes []string) {
+func send(d Dester, nodes []string) {
 }
