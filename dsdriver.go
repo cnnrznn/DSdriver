@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type Message interface {
+type Dester interface {
 	Dest() int // a function that reports the destination of this thing
 }
 
@@ -18,9 +18,9 @@ type Message interface {
 	Decode([]byte) error     // de-serialize the message
 }
 
-type Hub func(sendChans []chan Message, recvChan chan Dester)
+type Hub func(sendChans []chan Message, recvChan chan Message)
 
-func BenignHub(sendChans []chan Message, recvChan chan Dester) {
+func BenignHub(sendChans []chan Message, recvChan chan Message) {
 	for {
 		select {
 		case d := <-recvChan:
@@ -29,7 +29,7 @@ func BenignHub(sendChans []chan Message, recvChan chan Dester) {
 	}
 }
 
-func ReorderHub(sendChans []chan Message, recvChan chan Dester) {
+func ReorderHub(sendChans []chan Message, recvChan chan Message) {
 	buffer := make([]Message, 0)
 	startTime := time.Now()
 	timeDiff := 100 * time.Millisecond
