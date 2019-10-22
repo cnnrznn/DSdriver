@@ -12,6 +12,12 @@ type Dester interface {
 	Dest() int // a function that reports the destination of this thing
 }
 
+type Message interface {
+    Dest() int // the message's destination
+    Encode() []byte, error // serialize the message
+    Decode([]byte) error // de-serialize the message
+}
+
 type Hub func(sendChans []chan Dester, recvChan chan Dester)
 
 func BenignHub(sendChans []chan Dester, recvChan chan Dester) {
@@ -82,6 +88,15 @@ func Remote(i int) (frChan, toChan chan Dester) {
 
     frChan = make(chan Dester, 1024)
     toChan = make(chan Dester, 1024)
+
+    go serve(i, nodes, toChan)
+
+    for {
+        select {
+        case msg := <-frChan:
+            go send(msg, nodes)
+        }
+    }
 
     return
 }
