@@ -13,6 +13,11 @@ type Dester interface {
 	Dest() int // a function that reports the destination of this thing
 }
 
+type Message struct {
+    Bytes []byte
+    Dest int
+}
+
 type Hub func(sendChans []chan Dester, recvChan chan Dester)
 
 func BenignHub(sendChans []chan Dester, recvChan chan Dester) {
@@ -27,7 +32,7 @@ func BenignHub(sendChans []chan Dester, recvChan chan Dester) {
 func ReorderHub(sendChans []chan Dester, recvChan chan Dester) {
 	buffer := make([]Dester, 0)
 	startTime := time.Now()
-	timeDiff := 100 * time.Millisecond
+	timeDiff := 50 * time.Millisecond
 
 	for {
 		select {
@@ -73,7 +78,7 @@ func loadNodes() (nodes []string, err error) {
 	return
 }
 
-func Remote(i int, s Serializer) (frChan, toChan chan Dester) {
+func Remote(i int) (frChan, toChan chan Dester) {
 	nodes, err := loadNodes()
 	if err != nil {
 		fmt.Println("Error loading 'nodes' file", err)
@@ -84,20 +89,54 @@ func Remote(i int, s Serializer) (frChan, toChan chan Dester) {
 	frChan = make(chan Dester, 1024)
 	toChan = make(chan Dester, 1024)
 
-	go serve(i, nodes, toChan)
-
-	for {
-		select {
-		case msg := <-frChan:
-			go send(msg, nodes)
-		}
-	}
+	go serve(i, nodes, toChan, frChan)
 
 	return
 }
 
-func serve(i int, nodes []string, toChan chan Dester) {
+func serve(i int, nodes []string, toChan, frChan chan Dester) {
+    // TODO create listening socket
+    pc, err := ListenPacket("udp", nodes[i])
+    if err != nil {
+        fmt.Println("Can't bind to socket", err)
+        return
+    }
+
 }
 
-func send(d Dester, nodes []string) {
+func launchSenders(frChan chan Message) {
+    for {
+        select {
+        case m := <-frChan:
+            go send(m, nodes)
+        }
+    }
+}
+
+func send(data []byte, dest int, nodes []string) {
+    for {
+        conn, err := net.Dial("udp", nodes[dest])
+        if err != nil {
+            fmt.Println("Error dialing destination")
+            continue
+        }
+        defer conn.Close()
+
+        buf := make([]byte, 128)
+
+        for {
+            conn.Write(data)
+
+            conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+
+            n, err := conn.Read(buf)
+            if err != nil {
+                fmt.Println("Error reading packet")
+                continue
+            }
+            if string(buf[:n]) == "ok" {
+                return // Success!
+            }
+        }
+    }
 }
