@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
-    "net"
+	"net"
 	"time"
 )
 
@@ -14,8 +14,8 @@ type Dester interface {
 }
 
 type Message struct {
-    Bytes []byte
-    Dest int
+	Bytes []byte
+	Dest  int
 }
 
 type Hub func(sendChans []chan Dester, recvChan chan Dester)
@@ -56,10 +56,10 @@ func ReorderHub(sendChans []chan Dester, recvChan chan Dester) {
 
 func Local(n int, fn Hub) (frChan chan Dester,
 	toChans []chan Dester) {
-	frChan = make(chan Dester, 1024)
+	frChan = make(chan Dester, 4096)
 
 	for i := 0; i < n; i++ {
-		toChans = append(toChans, make(chan Dester, 1024))
+		toChans = append(toChans, make(chan Dester, 4096))
 	}
 
 	go fn(toChans, frChan)
@@ -78,65 +78,70 @@ func loadNodes() (nodes []string, err error) {
 	return
 }
 
-func Remote(i int) (frChan, toChan chan Dester) {
-	nodes, err := loadNodes()
-	if err != nil {
-		fmt.Println("Error loading 'nodes' file", err)
-		panic("Error loading file")
-	}
-	fmt.Println(nodes)
+func Remote(i int, nodes []string) (frChan, toChan chan Message) {
+	//nodes, err := loadNodes()
+	//if err != nil {
+	//	fmt.Println("Error loading 'nodes' file", err)
+	//	panic("Error loading file")
+	//}
+	//fmt.Println(nodes)
 
-	frChan = make(chan Dester, 1024)
-	toChan = make(chan Dester, 1024)
+	frChan = make(chan Message, 1024)
+	toChan = make(chan Message, 1024)
 
 	go serve(i, nodes, toChan, frChan)
+	go launchSenders(frChan, nodes)
 
 	return
 }
 
-func serve(i int, nodes []string, toChan, frChan chan Dester) {
-    // TODO create listening socket
-    pc, err := ListenPacket("udp", nodes[i])
-    if err != nil {
-        fmt.Println("Can't bind to socket", err)
-        return
-    }
+func serve(i int, nodes []string, toChan, frChan chan Message) {
+	// TODO create listening socket
+	pc, err := net.ListenPacket("udp", nodes[i])
+	if err != nil {
+		fmt.Println("Can't bind to socket", err)
+		return
+	}
+	defer pc.Close()
 
+	for {
+	}
 }
 
-func launchSenders(frChan chan Message) {
-    for {
-        select {
-        case m := <-frChan:
-            go send(m, nodes)
-        }
-    }
+func launchSenders(frChan chan Message, nodes []string) {
+	for {
+		select {
+		case m := <-frChan:
+			go send(m, nodes)
+		}
+	}
 }
 
-func send(data []byte, dest int, nodes []string) {
-    for {
-        conn, err := net.Dial("udp", nodes[dest])
-        if err != nil {
-            fmt.Println("Error dialing destination")
-            continue
-        }
-        defer conn.Close()
+func send(msg Message, nodes []string) {
+	for {
+		conn, err := net.Dial("udp", nodes[msg.Dest])
+		if err != nil {
+			fmt.Println("Error dialing destination")
+			continue
+		}
+		defer conn.Close()
 
-        buf := make([]byte, 128)
+		buf := make([]byte, 128)
 
-        for {
-            conn.Write(data)
+		for {
+			// TODO play with the resend timeout
+			conn.Write(msg.Bytes)
 
-            conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+			conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
 
-            n, err := conn.Read(buf)
-            if err != nil {
-                fmt.Println("Error reading packet")
-                continue
-            }
-            if string(buf[:n]) == "ok" {
-                return // Success!
-            }
-        }
-    }
+			n, err := conn.Read(buf)
+			if err != nil {
+				fmt.Println("Error reading packet")
+				continue
+			}
+			if string(buf[:n]) == "ok" {
+				return // Success!
+			}
+		}
+	}
 }
